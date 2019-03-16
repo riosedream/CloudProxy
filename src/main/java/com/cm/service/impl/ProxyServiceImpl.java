@@ -1,62 +1,72 @@
-package com.cm.proxy;
+package com.cm.service.impl;
 
 import com.alibaba.fastjson.JSONObject;
+import com.cm.proxy.ProxyConnect;
+import com.cm.proxy.ServerTest;
+import com.cm.service.ProxyService;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 /**
  * @program: ssm
- * @description: Proxy Server端
+ * @description: ProxyService的实现
  * @author: DongKe
- * @create: 2019-03-12 21:18
+ * @create: 2019-03-16 16:30
  **/
-public class ServerTest {
+public class ProxyServiceImpl implements ProxyService {
     private static String serverResponse = "";
     private static boolean finishFlag = false;
-    private static ExecutorService executorService;
-    public static void main(String[] args) throws IOException {
+    private static int responseCode = 0;
+
+    @Override
+    public JSONObject startListen(String url) throws IOException {
+        JSONObject jsonObject = new JSONObject();
         ServerSocket serverSocket = new ServerSocket(8077);
-        System.out.println("Wait for connect...");
-
+        System.out.println("Wait for Connect...");
+        Socket socket = serverSocket.accept();
         System.out.println("Connected!!!");
-        executorService = Executors.newFixedThreadPool(4);
-
-        while (true) {
-            Socket socket = serverSocket.accept();
-            ProcessSocket processSocket = new ProcessSocket(socket);
-            processSocket.setListener(new RequestListener() {
-                @Override
-                public void onFinish(String responseStr) {
-                    System.out.println("ServerTest get callback:" + responseStr);
-                }
-            });
-            executorService.execute(processSocket);
+        ProcessSocket processSocket = new ProcessSocket(socket);
+        processSocket.start();
+        System.out.println("ServerTest get callback:" + serverResponse);
+        jsonObject.put("responseBody", serverResponse);
+        if (!"".equals(serverResponse) && !serverResponse.isEmpty()) {
+            responseCode = 200;
         }
+        jsonObject.put("responseCode", responseCode);
 
+        return jsonObject;
     }
 
     /**
+     * 主线程回调
+     */
+    public static void finishNotify(String responseStr) {
+        if (!finishFlag) {
+            finishFlag = true;
+            serverResponse = responseStr;
+        }
+    }
+    /**
      * 处理client端数据的
      */
-    static class ProcessSocket implements Runnable {
+    static class ProcessSocket extends Thread {
         Socket processSocket;
         String proxyHost = "";
-        RequestListener requestListener;
         // 构造
         public ProcessSocket (Socket socket) {
             this.processSocket = socket;
         }
-        public void setListener(RequestListener listener){
-            requestListener = listener;
-        }
         @Override
         public void run() {
             try {
-                if (this.processSocket == null) return;
+                if (this.processSocket == null) {
+                    return;
+                }
                 InputStream inputStream = processSocket.getInputStream();// 从socket获取输入流
                 InputStreamReader inputStreamReader = new InputStreamReader(inputStream, "UTF-8");// 用InputStreamReader 读取 InputStream
                 BufferedReader reader = new BufferedReader(inputStreamReader);// 用BufferReader读取InputStreamReader中内容
@@ -68,8 +78,7 @@ public class ServerTest {
                     if (temp.contains("Host")) {
                         proxyHost = getProxyHost(temp);
                         ProxyConnect proxyConnect = new ProxyConnect(proxyHost);
-                        proxyConnect.setListener(requestListener);
-                        proxyConnect.run();
+                        proxyConnect.start();
                         break;
                     }
                     // builder.append(temp);
@@ -91,7 +100,5 @@ public class ServerTest {
             return urlHost;
         }
     }
-
-
 }
 

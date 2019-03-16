@@ -14,10 +14,15 @@ import java.net.URL;
  * @author: DongKe
  * @create: 2019-03-14 22:02
  **/
-public class ProxyConnect extends Thread {
+public class ProxyConnect implements Runnable {
     String hostUrl = "";
+    RequestListener listener;
     public ProxyConnect (String url) {
         this.hostUrl = url;
+    }
+
+    public void setListener(RequestListener listener){
+        this.listener = listener;
     }
     // 开启线程代替client端访问hostUrl
     @Override
@@ -34,13 +39,14 @@ public class ProxyConnect extends Thread {
         if (urlHost != null && !urlHost.isEmpty()) {
             URL url = new URL(urlHost);
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-            connection.setRequestMethod("GET");// 后期根据客户端方法设定request方法
+            // connection.setRequestMethod("GET");// 后期根据客户端方法设定request方法
             connection.connect();
 
             int responseCode = connection.getResponseCode();
             if (responseCode == HttpURLConnection.HTTP_OK) {
                 responseStr= stream2String(connection.getInputStream());
-                ServerTest.finishNotify(responseStr);
+                listener.onFinish(responseStr);
+                // ServerTest.finishNotify(responseStr);
             }
             System.out.println("ProxyConnect Response:" + responseStr);
         }
@@ -55,6 +61,7 @@ public class ProxyConnect extends Thread {
         }
         return stringBuilder.toString();
     }
+
     public interface  connectListener{
 
     }
