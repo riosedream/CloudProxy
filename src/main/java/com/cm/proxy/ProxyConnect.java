@@ -1,12 +1,11 @@
 package com.cm.proxy;
 
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.net.HttpURLConnection;
+import java.net.Socket;
 import java.net.URL;
+import java.util.Map;
 
 /**
  * @program: ssm
@@ -14,48 +13,70 @@ import java.net.URL;
  * @author: DongKe
  * @create: 2019-03-14 22:02
  **/
-public class ProxyConnect extends Thread {
-    String hostUrl = "";
-    public ProxyConnect (String url) {
-        this.hostUrl = url;
+public class ProxyConnect implements Runnable {
+    Request request;
+    Socket processSocket;
+
+    public ProxyConnect(Request request, Socket socket) {
+        this.request = request;
+        processSocket = socket;
     }
+
     // 开启线程代替client端访问hostUrl
     @Override
     public void run() {
         try {
-            proxyAccess(hostUrl);
+            proxyAccess();
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    private void proxyAccess(String urlHost) throws IOException {
+    private void proxyAccess() throws IOException {
         String responseStr = "";
-        if (urlHost != null && !urlHost.isEmpty()) {
-            URL url = new URL(urlHost);
-            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-            connection.setRequestMethod("GET");// 后期根据客户端方法设定request方法
-            connection.connect();
+        if (request == null || request.url == null || request.url.isEmpty()) {
+            return;
+        }
 
-            int responseCode = connection.getResponseCode();
-            if (responseCode == HttpURLConnection.HTTP_OK) {
-                responseStr= stream2String(connection.getInputStream());
-                ServerTest.finishNotify(responseStr);
+        URL url = new URL(request.getUrl());
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.setRequestMethod(request.getMethod());
+        if (!request.headers.isEmpty()) {
+            for (Map.Entry<String, String> entry : request.headers.entrySet()) {
+                connection.setRequestProperty(entry.getKey(), entry.getValue());
             }
+        }
+        if (request.body != null) {
+            // 获取URLConnection对象对应的输出流
+            connection.setDoOutput(true);
+            PrintWriter out = new PrintWriter(connection.getOutputStream());
+            // 发送请求参数
+            out.print(request.body);
+            // flush输出流的缓冲
+            out.flush();
+        }
+
+        connection.connect();
+
+        int responseCode = connection.getResponseCode();
+        if (responseCode == HttpURLConnection.HTTP_OK) {
+            responseStr = stream2String(connection.getInputStream());
             System.out.println("ProxyConnect Response:" + responseStr);
         }
 
     }
-    private String stream2String (InputStream stream) throws IOException {
+
+    private String stream2String(InputStream stream) throws IOException {
         InputStreamReader streamReader = new InputStreamReader(stream);
         BufferedReader reader = new BufferedReader(streamReader);
         StringBuilder stringBuilder = new StringBuilder();
-        for (String temp = reader.readLine(); temp != null ; temp = reader.readLine()) {
+        for (String temp = reader.readLine(); temp != null; temp = reader.readLine()) {
             stringBuilder.append(temp);
         }
         return stringBuilder.toString();
     }
-    public interface  connectListener{
+
+    public interface connectListener {
 
     }
 }
