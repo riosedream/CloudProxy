@@ -4,13 +4,17 @@ import com.alibaba.fastjson.JSONObject;
 import com.cm.common.utils.host.HostUtil;
 import com.cm.common.utils.qrcode.PoolCache;
 import com.cm.common.utils.qrcode.ScanPool;
+import com.cm.service.ProxyService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import javax.servlet.http.HttpServletRequest;
+import java.io.IOException;
 import java.net.UnknownHostException;
 import java.util.UUID;
 
@@ -20,12 +24,16 @@ import java.util.UUID;
 @Controller
 public class QRScanController {
     Logger logger = LoggerFactory.getLogger(QRScanController.class);
+
+    @Autowired
+    private ProxyService proxyService;
     /**
      * 加载二维码页面
      * @return
      */
     @RequestMapping("/index")
-    public String index(Model model) throws UnknownHostException {
+    public String index(Model model, HttpServletRequest request) throws UnknownHostException {
+        String remoteIP =  request.getRemoteAddr();
         // 生成随机UUID
         String uuid = UUID.randomUUID().toString();
         // 获取作为Server的本机IP
@@ -33,6 +41,7 @@ public class QRScanController {
         PoolCache.cacheMap.put(uuid, new ScanPool());
         model.addAttribute("uuid",uuid);
         model.addAttribute("ip", localServerIP);
+        model.addAttribute("webip", remoteIP);
         return "index";
     }
     /**
@@ -120,8 +129,6 @@ public class QRScanController {
         return obj;
     }
 
-
-
     @RequestMapping("/scan")
     @ResponseBody
     public String scan(){
@@ -129,6 +136,13 @@ public class QRScanController {
         return "haha";
     }
 
+    @RequestMapping("/startListen")
+    @ResponseBody
+    public JSONObject startListen(String targetUrl) throws IOException {
+        JSONObject jsonObject = proxyService.startListen(targetUrl);
+
+        return jsonObject;
+    }
     @RequestMapping("/testGet")
     @ResponseBody
     public JSONObject testGet(String param) {
@@ -138,6 +152,11 @@ public class QRScanController {
         object.put("resultCode", "200");
         return object;
     }
+
+
+//    public JSONObject httpProxy(String clientUrl) {
+//
+//    }
 
 }
 

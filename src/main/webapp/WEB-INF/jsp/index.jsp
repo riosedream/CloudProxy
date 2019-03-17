@@ -108,8 +108,9 @@
     !function(){
         var uuid = $("#uuid").val();
         var localServerIP = '${ip}';
+        var webIp = '${webip}';
         console.log(uuid);
-        var content =  "http://"+ localServerIP + ":"+"${pageContext.request.serverPort}"+"/scanLogin?uuid="+uuid;
+        var content =  "http://"+ localServerIP + ":"+"${pageContext.request.serverPort}"+"/scanLogin?uuid="+uuid+ "&webIp=" +webIp;
         console.dir("扫码url: "+content);
         var contextRootPath = "${ctx}";
         console.log("项目根路径: "+"${pageContext.request}");
